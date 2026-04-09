@@ -71,8 +71,9 @@ export default function Home() {
   const [autoResponse,  setAutoResponse]  = useState(true);
   const [lastScan,      setLastScan]      = useState('');
   const [currentTime,   setCurrentTime]   = useState('');
-  const [ragKnowledge,  setRagKnowledge]  = useState<any>(null);
-  const [showKnowledge, setShowKnowledge] = useState(false);
+  const [ragKnowledge,      setRagKnowledge]      = useState<any>(null);
+  const [showKnowledge,     setShowKnowledge]     = useState(false);
+  const [featherlessData,   setFeatherlessData]   = useState<{ narrative: string | null; loading: boolean; error: string }>({ narrative: null, loading: false, error: '' });
   const [currentThreat, setCurrentThreat] = useState<any>(null);
   const [showThreat,    setShowThreat]    = useState(false);
   const [aiLog,         setAiLog]         = useState<string[]>([]);
@@ -298,12 +299,45 @@ export default function Home() {
     finally { setDetecting(false); }
   };
 
-  const fetchRAG = async (attackType: string) => {
+  const fetchRAG = async (attackType: string, alertCtx?: { ip?: string; riskScore?: number; reasons?: string[]; port?: number; protocol?: string }) => {
     try {
       const r = await fetch(`/api/rag?attackType=${encodeURIComponent(attackType)}`);
       const d = await r.json();
-      if (d.success) { setRagKnowledge(d.knowledge); setShowKnowledge(true); setTimeout(() => setShowKnowledge(false), 12000); }
+      if (d.success) {
+        setRagKnowledge(d.knowledge);
+        setShowKnowledge(true);
+        setTimeout(() => setShowKnowledge(false), 20000);
+      }
     } catch {}
+
+    // Fire Featherless in parallel — non-blocking
+    if (alertCtx?.ip) {
+      setFeatherlessData({ narrative: null, loading: true, error: '' });
+      try {
+        const fr = await fetch('/api/featherless-analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ip:         alertCtx.ip,
+            attackType,
+            riskScore:  alertCtx.riskScore ?? 0,
+            reasons:    alertCtx.reasons ?? [],
+            port:       alertCtx.port,
+            protocol:   alertCtx.protocol,
+          }),
+        });
+        const fd = await fr.json();
+        if (fd.noKey) {
+          setFeatherlessData({ narrative: null, loading: false, error: 'Add FEATHERLESS_API_KEY to .env.local to enable AI narratives' });
+        } else if (fd.success && fd.narrative) {
+          setFeatherlessData({ narrative: fd.narrative, loading: false, error: '' });
+        } else {
+          setFeatherlessData({ narrative: null, loading: false, error: fd.message ?? 'Featherless unavailable' });
+        }
+      } catch {
+        setFeatherlessData({ narrative: null, loading: false, error: 'Could not reach Featherless API' });
+      }
+    }
   };
 
   const execResponse = async (ip: string, attackType: string, riskScore: number, threatStatus: string) => {
@@ -678,7 +712,7 @@ export default function Home() {
                           <td>{log.threatStatus ? statusTag(log.threatStatus) : '—'}</td>
                           <td>
                             {log.attackType && log.attackType !== 'None'
-                              ? <button className="t-alert-btn cyan" onClick={() => fetchRAG(log.attackType!)}>{log.attackType}</button>
+                              ? <button className="t-alert-btn cyan" onClick={() => fetchRAG(log.attackType!, { ip: log.ip, riskScore: log.riskScore, port: log.port, protocol: log.protocol })}>{log.attackType}</button>
                               : <span style={{ color: 'var(--faint)' }}>—</span>}
                           </td>
                           <td>
@@ -715,7 +749,7 @@ export default function Home() {
                         <span className="t-alert-type">{a.attackType}</span>
                         <span className="t-alert-score" style={{ color: riskColor(a.riskScore) }}>{Math.round(a.riskScore * 10) / 10}</span>
                         <span className="t-alert-reason">{a.reasons?.[0] ?? a.threatStatus}</span>
-                        <button className="t-alert-btn cyan" onClick={() => fetchRAG(a.attackType)}>INFO</button>
+                        <button className="t-alert-btn cyan" onClick={() => fetchRAG(a.attackType, { ip: a.trafficData?.ip, riskScore: a.riskScore, reasons: a.reasons, port: a.trafficData?.port, protocol: a.trafficData?.protocol })}>INFO</button>
                         <button className="t-alert-btn" onClick={() => a.trafficData?.ip ? execResponse(a.trafficData.ip, a.attackType, a.riskScore, a.threatStatus) : undefined}>
                           {a.riskScore >= 60 ? 'BLOCK' : 'LIMIT'}
                         </button>
@@ -1014,16 +1048,52 @@ export default function Home() {
 
       {/* ══ RAG KNOWLEDGE OVERLAY ══ */}
       {showKnowledge && ragKnowledge && (
-        <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 50, width: 380 }}>
+        <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 50, width: 420 }}>
           <div className="t-panel" style={{ boxShadow: 'var(--cyan-glow2)' }}>
             <div className="t-panel-header">
               <span className="t-panel-title">AI_KNOWLEDGE_BASE</span>
-              <button className="t-btn" style={{ padding: '2px 8px', fontSize: 10 }} onClick={() => setShowKnowledge(false)}>CLOSE</button>
+              <button className="t-btn" style={{ padding: '2px 8px', fontSize: 10 }} onClick={() => { setShowKnowledge(false); setFeatherlessData({ narrative: null, loading: false, error: '' }); }}>CLOSE</button>
             </div>
-            <div className="t-panel-body" style={{ maxHeight: 200, overflowY: 'auto' }}>
+            {/* RAG section */}
+            <div className="t-panel-body" style={{ maxHeight: 160, overflowY: 'auto', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 9, color: 'var(--faint)', letterSpacing: '0.08em', marginBottom: 6 }}>// RAG_KNOWLEDGE</div>
               <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.7 }}>
                 {typeof ragKnowledge === 'string' ? ragKnowledge : (ragKnowledge.description ?? JSON.stringify(ragKnowledge))}
               </div>
+              {ragKnowledge?.mitigation && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 9, color: 'var(--faint)', marginBottom: 4 }}>// IMMEDIATE_ACTIONS</div>
+                  {ragKnowledge.mitigation.slice(0, 3).map((m: string, i: number) => (
+                    <div key={i} style={{ fontSize: 10, color: 'var(--muted)', display: 'flex', gap: 6, padding: '1px 0' }}>
+                      <span style={{ color: 'var(--cyan)', flexShrink: 0 }}>›</span><span>{m}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Featherless narrative section */}
+            <div className="t-panel-body" style={{ maxHeight: 200, overflowY: 'auto' }}>
+              <div style={{ fontSize: 9, color: 'var(--faint)', letterSpacing: '0.08em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                // FEATHERLESS_AI_NARRATIVE
+                {featherlessData.loading && (
+                  <span style={{ fontSize: 8, color: 'var(--cyan)', animation: 'pulse 1s infinite' }}>● GENERATING...</span>
+                )}
+              </div>
+              {featherlessData.loading && (
+                <div style={{ fontSize: 10, color: 'var(--faint)', fontStyle: 'italic' }}>
+                  Featherless AI is analyzing this threat...
+                </div>
+              )}
+              {featherlessData.error && (
+                <div style={{ fontSize: 10, color: 'var(--yellow)', border: '1px solid var(--yellow)', padding: '4px 8px' }}>
+                  {featherlessData.error}
+                </div>
+              )}
+              {featherlessData.narrative && (
+                <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                  {featherlessData.narrative}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -13,6 +13,7 @@ import { trafficCommand } from './commands/traffic';
 import { blockIpCommand } from './commands/block-ip';
 import { sitesCommand }   from './commands/sites';
 import { statsCommand }   from './commands/stats';
+import { analyzeCommand } from './commands/analyze';
 
 function banner() {
   const art = figlet.textSync('LoKey', { font: 'Big' });
@@ -88,6 +89,13 @@ program
   .description('Show system security status')
   .action(async () => {
     await statsCommand();
+  });
+
+program
+  .command('analyze <ip>')
+  .description('Generate AI threat narrative for an IP via Featherless')
+  .action(async (ip: string) => {
+    await analyzeCommand(ip);
   });
 
 program.parse(process.argv);
