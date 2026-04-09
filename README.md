@@ -68,7 +68,7 @@ The **Civic AI Governance Dashboard** (shown above) provides:
 
 ---
 
-## Architecture
+```## Architecture
 ┌─────────────────────────────────────────────────────────────┐
 │ CHROME EXTENSION │
 │ Navigation Interceptor → Warning Page → Proceed / Block │
@@ -104,7 +104,7 @@ The **Civic AI Governance Dashboard** (shown above) provides:
 │ 📱 Edge Deployment │
 │ 🔒 Privacy-First │
 └─────────────────────────┘
-
+```
 text
 
 ---
