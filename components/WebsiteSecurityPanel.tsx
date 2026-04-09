@@ -24,6 +24,152 @@ interface WebsiteSecurityPanelProps {
   onThreatClick?: (threat: WebsiteAlert) => void;
 }
 
+// ── AI Fix Dropdown ────────────────────────────────────────────
+function ScanRowDropdown({ scan }: { scan: WebsiteScan }) {
+  const [open,    setOpen]    = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [fixes,   setFixes]   = useState<string[]>([]);
+  const [fetched, setFetched] = useState(false);
+
+  const getAiFixes = async () => {
+    if (fetched) return; // don't re-fetch
+    setLoading(true);
+    try {
+      const res = await fetch('/api/groq-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url:          `https://${scan.domain}`,
+          domain:       scan.domain,
+          htmlSnippet:  '',
+          cookies:      [],
+          scripts:      [],
+          forms:        [],
+          localRisk:    scan.riskScore,
+          localThreats: scan.threats,
+        }),
+      });
+      const data = await res.json();
+      if (data.recommendations?.length) {
+        setFixes(data.recommendations);
+      } else {
+        setFixes(['No specific fixes returned — check CSP, HTTPS, and cookie flags.']);
+      }
+      setFetched(true);
+    } catch {
+      setFixes(['Could not reach AI engine. Make sure the server is running.']);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggle = () => {
+    setOpen(o => !o);
+    if (!open && !fetched) getAiFixes();
+  };
+
+  const scoreColor = (s: number) =>
+    s >= 80 ? '#22c55e' : s >= 60 ? '#eab308' : s >= 40 ? '#f97316' : '#ef4444';
+
+  const riskBadge = (r: number) => {
+    if (r >= 70) return { label: 'CRITICAL', bg: '#7f1d1d', color: '#fca5a5' };
+    if (r >= 50) return { label: 'HIGH',     bg: '#7c2d12', color: '#fdba74' };
+    if (r >= 30) return { label: 'MEDIUM',   bg: '#713f12', color: '#fde047' };
+    return              { label: 'LOW',      bg: '#14532d', color: '#86efac' };
+  };
+
+  const badge = riskBadge(scan.riskScore);
+
+  return (
+    <>
+      {/* Table row */}
+      <tr
+        onClick={toggle}
+        style={{ borderBottom: '1px solid #1f2937', cursor: 'pointer', background: open ? '#0f172a' : 'transparent', transition: 'background 0.15s' }}
+      >
+        <td style={{ padding: '10px 16px', fontSize: 12, color: '#6b7280', fontFamily: 'monospace' }}>
+          {new Date(scan.timestamp).toLocaleTimeString()}
+        </td>
+        <td style={{ padding: '10px 16px', fontSize: 12, color: '#e5e7eb', fontFamily: 'monospace' }}>
+          {scan.domain}
+        </td>
+        <td style={{ padding: '10px 16px' }}>
+          <span style={{ fontWeight: 700, color: scoreColor(scan.securityScore), fontSize: 13 }}>
+            {scan.securityScore}/100
+          </span>
+        </td>
+        <td style={{ padding: '10px 16px' }}>
+          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: badge.bg, color: badge.color }}>
+            {badge.label}
+          </span>
+        </td>
+        <td style={{ padding: '10px 16px', fontSize: 12, color: '#9ca3af' }}>
+          {scan.threats?.length || 0} issues
+        </td>
+        <td style={{ padding: '10px 16px', textAlign: 'right' }}>
+          <span style={{ fontSize: 10, color: '#00eaff', border: '1px solid #1e3a5f', padding: '2px 8px', borderRadius: 3, fontFamily: 'monospace' }}>
+            {open ? '▲ CLOSE' : '▼ DETAILS'}
+          </span>
+        </td>
+      </tr>
+
+      {/* Dropdown row */}
+      {open && (
+        <tr style={{ background: '#0a0f1a' }}>
+          <td colSpan={6} style={{ padding: '0 16px 16px' }}>
+            <div style={{ borderLeft: '2px solid #1e3a5f', paddingLeft: 14, marginTop: 8 }}>
+
+              {/* Issues list */}
+              <div style={{ fontSize: 10, color: '#4b5563', letterSpacing: '0.08em', marginBottom: 8 }}>
+                // DETECTED_ISSUES [{scan.threats?.length || 0}]
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
+                {(scan.threats || []).map((t, i) => {
+                  const tl = t.toLowerCase();
+                  const color = tl.includes('critical') || tl.includes('password') || tl.includes('insecure') ? '#ff3b3b'
+                              : tl.includes('xss') || tl.includes('csrf') || tl.includes('samesite') ? '#facc15'
+                              : '#9ca3af';
+                  return (
+                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <span style={{ color, fontSize: 9, marginTop: 2, flexShrink: 0 }}>●</span>
+                      <span style={{ fontSize: 11, color: '#9ca3af', lineHeight: 1.5 }}>{t}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* AI Fix section */}
+              <div style={{ borderTop: '1px solid #1f2937', paddingTop: 12 }}>
+                <div style={{ fontSize: 10, color: '#4b5563', letterSpacing: '0.08em', marginBottom: 8 }}>
+                  // AI_REMEDIATION_GUIDE
+                </div>
+
+                {loading && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#00eaff', fontSize: 11 }}>
+                    <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #1f2937', borderTop: '2px solid #00eaff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                    Asking Groq AI for fixes...
+                  </div>
+                )}
+
+                {!loading && fixes.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {fixes.map((fix, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '6px 10px', background: '#0d1f0d', borderLeft: '2px solid #00ff88' }}>
+                        <span style={{ color: '#00ff88', fontSize: 10, flexShrink: 0, marginTop: 1 }}>AI›</span>
+                        <span style={{ fontSize: 11, color: '#86efac', lineHeight: 1.5 }}>{fix}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
 // Severity color function
 const getThreatSeverity = (threat: string) => {
   const threatLower = threat.toLowerCase();
@@ -276,46 +422,19 @@ export default function WebsiteSecurityPanel({ onThreatClick }: WebsiteSecurityP
             <span>📋</span> Recent Security Scans
           </h3>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-700/50">
-                <tr className="text-left text-sm">
-                  <th className="px-4 py-3">Time</th>
-                  <th className="px-4 py-3">Domain</th>
-                  <th className="px-4 py-3">Security Score</th>
-                  <th className="px-4 py-3">Risk Level</th>
-                  <th className="px-4 py-3">Issues</th>
+            <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#111827', borderBottom: '1px solid #1f2937' }}>
+                  {['Time', 'Domain', 'Security Score', 'Risk Level', 'Issues', ''].map(h => (
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, color: '#00eaff', fontWeight: 700, letterSpacing: '0.08em', fontFamily: 'monospace' }}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {scans.slice(0, 10).map((scan) => (
-                  <tr key={scan._id} className="border-b border-gray-700/30 hover:bg-gray-700/20 transition">
-                    <td className="px-4 py-2 text-sm text-gray-400">
-                      {new Date(scan.timestamp).toLocaleTimeString()}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-sm text-white">
-                      {scan.domain}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span className={`font-bold ${getScoreColor(scan.securityScore)}`}>
-                        {scan.securityScore}/100
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        scan.riskScore >= 70 ? 'bg-red-900 text-red-300' :
-                        scan.riskScore >= 50 ? 'bg-orange-900 text-orange-300' :
-                        scan.riskScore >= 30 ? 'bg-yellow-900 text-yellow-300' :
-                        'bg-green-900 text-green-300'
-                      }`}>
-                        {scan.riskScore >= 70 ? 'CRITICAL' :
-                         scan.riskScore >= 50 ? 'HIGH' :
-                         scan.riskScore >= 30 ? 'MEDIUM' : 'LOW'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-400">
-                      {scan.threats?.length || 0} issues
-                    </td>
-                  </tr>
+                {scans.slice(0, 10).map(scan => (
+                  <ScanRowDropdown key={scan._id} scan={scan} />
                 ))}
               </tbody>
             </table>
@@ -384,6 +503,9 @@ export default function WebsiteSecurityPanel({ onThreatClick }: WebsiteSecurityP
         }
         .animate-fadeIn {
           animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
