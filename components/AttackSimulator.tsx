@@ -119,9 +119,11 @@ export default function AttackSimulator() {
               onClick={() => simulate(a.type)}
               disabled={running !== null}
               style={{
-                background:    'var(--bg3)',
-                border:        `1px solid ${isRunning ? a.color : 'var(--border)'}`,
-                borderTop:     `2px solid ${a.color}`,
+                background:   'var(--bg3)',
+                borderTop:    `2px solid ${a.color}`,
+                borderRight:  `1px solid ${isRunning ? a.color : 'var(--border)'}`,
+                borderBottom: `1px solid ${isRunning ? a.color : 'var(--border)'}`,
+                borderLeft:   `1px solid ${isRunning ? a.color : 'var(--border)'}`,
                 padding:       '12px 10px',
                 cursor:        running !== null ? 'not-allowed' : 'pointer',
                 opacity:       running !== null && !isRunning ? 0.4 : 1,
