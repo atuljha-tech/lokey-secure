@@ -5,6 +5,7 @@ import SOCDashboard from '../components/SOCDashboard';
 import WebsiteSecurityPanel from '../components/WebsiteSecurityPanel';
 import ThreatPopup from '../components/ThreatPopup';
 import SecurityWarningPopup, { SecurityWarningData } from '../components/SecurityWarningPopup';
+import AttackSimulator from '../components/AttackSimulator';
 import { playAlert, playScan, playBlock } from '../lib/sounds';
 
 /* ── Types ── */
@@ -603,7 +604,18 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Row 4: Extension panel */}
+              {/* Row 4: Attack Simulator */}
+              <div className="t-panel">
+                <div className="t-panel-header">
+                  <span className="t-panel-title">ATTACK_SIMULATOR</span>
+                  <span className="t-panel-meta" style={{ color: 'var(--red)' }}>⚡ LIVE PIPELINE</span>
+                </div>
+                <div className="t-panel-body">
+                  <AttackSimulator />
+                </div>
+              </div>
+
+              {/* Row 5: Extension panel */}
               <div className="t-panel">
                 <div className="t-panel-header">
                   <span className="t-panel-title">CHROME_EXTENSION_FEED</span>
