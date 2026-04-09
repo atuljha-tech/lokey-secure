@@ -1,31 +1,33 @@
-// Sound effects — plays the real MP3 files from /public/sounds/
-// Falls back to Web Audio API synthesis if the file fails to load
+// Sound effects — plays real MP3 files from /public/sounds/
+// Falls back to Web Audio synthesis if file fails or autoplay is blocked
 
-// ── Cache Audio objects so they don't reload on every call ──
+// ── Audio cache — preloaded once, reused on every call ──
 const cache: Record<string, HTMLAudioElement> = {};
 
-function playFile(filename: string, volume = 1.0) {
+function getAudio(filename: string): HTMLAudioElement | null {
+  if (typeof window === 'undefined') return null;
+  if (!cache[filename]) {
+    const a = new Audio(`/sounds/${filename}`);
+    a.preload = 'auto';
+    cache[filename] = a;
+  }
+  return cache[filename];
+}
+
+function playFile(filename: string, volume = 0.8) {
   if (typeof window === 'undefined') return;
   try {
-    if (!cache[filename]) {
-      const audio = new Audio(`/sounds/${filename}`);
-      audio.preload = 'auto';
-      cache[filename] = audio;
-    }
-    const audio = cache[filename];
-    // Reset to start so rapid calls work
-    audio.currentTime = 0;
+    const audio = getAudio(filename);
+    if (!audio) return;
+    audio.currentTime = 0;                          // restart if already playing
     audio.volume = Math.max(0, Math.min(1, volume));
-    audio.play().catch(() => {
-      // Autoplay blocked or file missing — fall back to synthesis
-      synthFallback(filename);
-    });
+    audio.play().catch(() => synthFallback(filename)); // autoplay blocked → synth
   } catch {
     synthFallback(filename);
   }
 }
 
-// ── Web Audio synthesis fallback ──
+// ── Synthesis fallback (used only if MP3 fails) ──
 function synthFallback(filename: string) {
   try {
     const ac = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -60,16 +62,12 @@ function synthFallback(filename: string) {
   } catch {}
 }
 
-// ── Preload all sounds on first import ──
+// ── Preload all three files immediately on import ──
 if (typeof window !== 'undefined') {
-  ['playAlert.mp3', 'playScan.mp3', 'playBlock.mp3'].forEach(f => {
-    const a = new Audio(`/sounds/${f}`);
-    a.preload = 'auto';
-    cache[f] = a;
-  });
+  ['playAlert.mp3', 'playScan.mp3', 'playBlock.mp3'].forEach(f => getAudio(f));
 }
 
-/** Threat/alert detected */
+/** New threat / alert detected */
 export function playAlert() { playFile('playAlert.mp3', 0.8); }
 
 /** AI scan initiated */
@@ -77,3 +75,11 @@ export function playScan()  { playFile('playScan.mp3',  0.7); }
 
 /** IP blocked */
 export function playBlock() { playFile('playBlock.mp3', 0.9); }
+
+/** Call on first user interaction to satisfy browser autoplay policy */
+export function preloadSounds() {
+  ['playAlert.mp3', 'playScan.mp3', 'playBlock.mp3'].forEach(f => {
+    const a = getAudio(f);
+    if (a) a.load();
+  });
+}
