@@ -3,6 +3,8 @@ import store from '@/lib/sessionStore';
 import { registerSSEClient } from '../sandbox-scan/route';
 
 export const dynamic = 'force-dynamic';
+// Vercel: increase function timeout for SSE (max 60s on hobby, 300s on pro)
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const encoder = new TextEncoder();
@@ -43,9 +45,9 @@ export async function GET(req: NextRequest) {
 
   return new Response(stream, {
     headers: {
-      'Content-Type':  'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection':    'keep-alive',
+      'Content-Type':      'text/event-stream',
+      'Cache-Control':     'no-cache, no-transform',
+      'Connection':        'keep-alive',
       'X-Accel-Buffering': 'no',
     },
   });

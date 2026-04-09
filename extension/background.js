@@ -1,7 +1,7 @@
 // AI-NMS Security Guardian v10.0
 // REAL security checks only — no false positives
 
-const API_BASE = 'http://localhost:3000';
+const API_BASE = 'https://lokey-secure.vercel.app';
 
 // ── Keep-alive ──
 setInterval(() => {
@@ -115,7 +115,7 @@ function realScore(url, cookies, pageData, headers) {
 
   // ── 6. Forms submitting to HTTP (verifiable from DOM) ──
   const insecureForms = (pageData.forms || []).filter(f =>
-    f.action && f.action.startsWith('http://') && !f.action.startsWith('http://localhost')
+    f.action && f.action.startsWith('http://') && !f.action.startsWith('https://lokey-secure.vercel.app/')
   );
   if (insecureForms.length > 0) {
     risk += 20;
@@ -493,7 +493,7 @@ function registerListeners() {
       }
 
       // Redirect to warning page
-      const warningUrl = `http://localhost:3000/warning?url=${encodeURIComponent(url)}`;
+      const warningUrl = `https://lokey-secure.vercel.app/warning?url=${encodeURIComponent(url)}`;
       chrome.tabs.update(details.tabId, { url: warningUrl });
     });
   }
