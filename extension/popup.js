@@ -168,7 +168,7 @@ document.querySelectorAll('.tab').forEach(btn => {
 
 /* ── Buttons ── */
 document.getElementById('btnDashboard').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'http://localhost:3000/' });
+  chrome.tabs.create({ url: 'https://lokey-secure.vercel.app/' });
 });
 
 document.getElementById('btnRescan').addEventListener('click', () => {

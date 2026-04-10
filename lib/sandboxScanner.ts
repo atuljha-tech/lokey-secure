@@ -326,7 +326,7 @@ export async function scanWebsiteInSandbox(url: string): Promise<SandboxResult> 
     try {
       const groqKey = process.env.GROQ_API_KEY;
       if (groqKey) {
-        const aiRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/api/groq-analyze`, {
+        const aiRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')}/api/groq-analyze`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

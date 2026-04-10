@@ -216,8 +216,8 @@ function createPanel(data) {
   document.getElementById('ainms-dash')?.addEventListener('click', () => {
     try {
       if (isExtensionValid()) chrome.runtime.sendMessage({ action: 'openDashboard' });
-      else window.open('http://localhost:3000', '_blank');
-    } catch { window.open('http://localhost:3000', '_blank'); }
+      else window.open('https://lokey-secure.vercel.app', '_blank');
+    } catch { window.open('https://lokey-secure.vercel.app', '_blank'); }
     closePanel();
   });
 }

@@ -521,7 +521,7 @@ export default function WebsiteSecurityPanel({ onThreatClick }: WebsiteSecurityP
               </div>
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => window.open(`http://localhost:3000`, '_blank')}
+                  onClick={() => window.open(process.env.NEXT_PUBLIC_BASE_URL || 'https://lokey-secure.vercel.app', '_blank')}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-2 rounded-lg transition-all"
                 >
                   View Dashboard

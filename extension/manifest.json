@@ -14,6 +14,7 @@
     "webRequest"
   ],
   "host_permissions": [
+    "https://lokey-secure.vercel.app/*",
     "https://ai-nms-security.vercel.app/*",
     "http://localhost/*",
     "http://127.0.0.1/*",

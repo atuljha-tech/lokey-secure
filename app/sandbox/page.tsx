@@ -64,8 +64,13 @@ function InteractiveBrowser({ initialUrl }: { initialUrl: string }) {
   const [navInput,  setNavInput]    = useState(initialUrl);
   const [serverUp,  setServerUp]    = useState<boolean | null>(null);
 
-  // Check if sandbox server is running
+  // Check if sandbox server is running (local only — not available on Vercel)
   useEffect(() => {
+    // On Vercel the sandbox server doesn't exist — skip the check
+    if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+      setServerUp(false);
+      return;
+    }
     fetch('http://localhost:4000/health')
       .then(r => r.json())
       .then(() => setServerUp(true))
