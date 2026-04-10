@@ -227,7 +227,7 @@ text
   ┌ CRITICAL ┐  No HTTPS — all data sent in plain text
   ┌ CRITICAL ┐  Phishing URL pattern: "login-verify"
   ┌ AI ENRICHMENT ┐  Groq: High-confidence phishing pattern
-```
+
 Dashboard Tabs
 Tab	What it shows	AI Integration
 DASHBOARD	Resource monitor · Security score · Live traffic stream · AI analysis log · Charts	Live Groq inference feed
