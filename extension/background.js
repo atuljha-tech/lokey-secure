@@ -19,8 +19,11 @@ function setBadge(tabId, score, analyzing) {
   const text  = analyzing ? '…' : String(score);
   const color = score >= 80 ? '#00ff88' : score >= 60 ? '#facc15' : score >= 40 ? '#f97316' : '#ff3b3b';
   try {
-    chrome.action.setBadgeText({ text, tabId });
-    chrome.action.setBadgeBackgroundColor({ color, tabId });
+    chrome.tabs.get(tabId, tab => {
+      if (chrome.runtime.lastError || !tab) return;
+      chrome.action.setBadgeText({ text, tabId });
+      chrome.action.setBadgeBackgroundColor({ color, tabId });
+    });
   } catch {}
 }
 
@@ -423,19 +426,22 @@ function showInPagePopup(tabId, data) {
   </div>
 </div>`;
 
-  chrome.scripting.executeScript({
-    target: { tabId },
-    func: (markup, base) => {
-      document.getElementById('ainms-overlay')?.remove();
-      document.body.insertAdjacentHTML('beforeend', markup);
-      const close = () => document.getElementById('ainms-overlay')?.remove();
-      document.getElementById('ainms-x')?.addEventListener('click', close);
-      document.getElementById('ainms-dismiss')?.addEventListener('click', close);
-      document.getElementById('ainms-dash')?.addEventListener('click', () => { window.open(base, '_blank'); close(); });
-      document.getElementById('ainms-overlay')?.addEventListener('click', e => { if (e.target === document.getElementById('ainms-overlay')) close(); });
-    },
-    args: [html, API_BASE],
-  }).catch(() => {});
+  chrome.tabs.get(tabId, tab => {
+    if (chrome.runtime.lastError || !tab) return;
+    chrome.scripting.executeScript({
+      target: { tabId },
+      func: (markup, base) => {
+        document.getElementById('ainms-overlay')?.remove();
+        document.body.insertAdjacentHTML('beforeend', markup);
+        const close = () => document.getElementById('ainms-overlay')?.remove();
+        document.getElementById('ainms-x')?.addEventListener('click', close);
+        document.getElementById('ainms-dismiss')?.addEventListener('click', close);
+        document.getElementById('ainms-dash')?.addEventListener('click', () => { window.open(base, '_blank'); close(); });
+        document.getElementById('ainms-overlay')?.addEventListener('click', e => { if (e.target === document.getElementById('ainms-overlay')) close(); });
+      },
+      args: [html, API_BASE],
+    }).catch(() => {});
+  });
 }
 
 // ── Debounce map to prevent duplicate analysis on rapid tab updates ──
@@ -494,7 +500,10 @@ function registerListeners() {
 
       // Redirect to warning page
       const warningUrl = `https://lokey-secure.vercel.app/warning?url=${encodeURIComponent(url)}`;
-      chrome.tabs.update(details.tabId, { url: warningUrl });
+      chrome.tabs.get(details.tabId, tab => {
+        if (chrome.runtime.lastError || !tab) return;
+        chrome.tabs.update(details.tabId, { url: warningUrl });
+      });
     });
   }
 

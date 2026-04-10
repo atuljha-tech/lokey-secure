@@ -123,21 +123,58 @@ function ScanRowDropdown({ scan }: { scan: WebsiteScan }) {
               <div style={{ fontSize: 10, color: '#4b5563', letterSpacing: '0.08em', marginBottom: 8 }}>
                 // DETECTED_ISSUES [{scan.threats?.length || 0}]
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
                 {(scan.threats || []).map((t, i) => {
                   const tl = t.toLowerCase();
                   const color = tl.includes('critical') || tl.includes('password') || tl.includes('insecure') ? '#ff3b3b'
                               : tl.includes('xss') || tl.includes('csrf') || tl.includes('samesite') ? '#facc15'
                               : '#9ca3af';
+
+                  // Inline fix hint based on threat content
+                  const hint =
+                    tl.includes('https') || tl.includes('plain text')
+                      ? 'Fix: Obtain a TLS certificate (free via Let\'s Encrypt). Redirect all HTTP traffic to HTTPS using a 301 redirect. Update all internal links to use https://.'
+                    : tl.includes('content-security-policy') || tl.includes('csp')
+                      ? 'Fix: Add a Content-Security-Policy header in your server config. Start with Content-Security-Policy: default-src \'self\'. Tighten script-src to block inline scripts and untrusted CDNs.'
+                    : tl.includes('x-frame-options') || tl.includes('iframe') || tl.includes('clickjack')
+                      ? 'Fix: Add the header X-Frame-Options: DENY or SAMEORIGIN. Alternatively use CSP frame-ancestors \'none\'. This prevents your page from being embedded in malicious iframes.'
+                    : tl.includes('x-content-type') || tl.includes('mime')
+                      ? 'Fix: Add the header X-Content-Type-Options: nosniff to all responses. This stops browsers from guessing content types and executing unexpected scripts.'
+                    : tl.includes('hsts') || tl.includes('strict-transport')
+                      ? 'Fix: Add Strict-Transport-Security: max-age=31536000; includeSubDomains to your HTTPS responses. This forces browsers to always use HTTPS for your domain.'
+                    : tl.includes('secure flag') || tl.includes('missing secure')
+                      ? 'Fix: Set the Secure attribute on all session and auth cookies. In Express: res.cookie("session", val, { secure: true, httpOnly: true }). Never send sensitive cookies over HTTP.'
+                    : tl.includes('httponly') || tl.includes('readable by javascript')
+                      ? 'Fix: Add the HttpOnly flag to all session cookies so JavaScript cannot read them. This blocks XSS attacks from stealing session tokens.'
+                    : tl.includes('samesite') || tl.includes('csrf')
+                      ? 'Fix: Set SameSite=Lax or SameSite=Strict on all cookies. This prevents cross-site request forgery by blocking cookies from being sent with cross-origin requests.'
+                    : tl.includes('mixed content') || tl.includes('http resource')
+                      ? 'Fix: Update all resource URLs (images, scripts, fonts) to use https://. Search your codebase for http:// and replace. Use a CSP upgrade-insecure-requests directive as a safety net.'
+                    : tl.includes('innerhtml') || tl.includes('xss')
+                      ? 'Fix: Replace innerHTML assignments with textContent or DOM methods like createElement. If HTML is required, sanitize input with DOMPurify before inserting.'
+                    : tl.includes('eval') || tl.includes('code injection')
+                      ? 'Fix: Remove eval() calls and replace with safer alternatives like JSON.parse() for data or Function constructors only when absolutely necessary. Add a CSP that blocks unsafe-eval.'
+                    : tl.includes('document.write')
+                      ? 'Fix: Replace document.write() with DOM manipulation methods (appendChild, insertAdjacentHTML). document.write() blocks parsing and is a common XSS vector.'
+                    : tl.includes('phishing') || tl.includes('login-verify')
+                      ? 'Fix: This domain pattern matches known phishing templates. Do not enter credentials. Verify the real domain via WHOIS and report to Google Safe Browsing.'
+                    : tl.includes('form') || tl.includes('post to http')
+                      ? 'Fix: Change all form action URLs from http:// to https://. Ensure your server enforces HTTPS on the receiving endpoint. Never submit credentials over unencrypted connections.'
+                    : 'Fix: Review your server security headers, cookie configuration, and HTTPS setup. Use securityheaders.com to audit your response headers.';
+
                   return (
-                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                      <span style={{ color, fontSize: 9, marginTop: 2, flexShrink: 0 }}>●</span>
-                      <span style={{ fontSize: 11, color: '#9ca3af', lineHeight: 1.5 }}>{t}</span>
+                    <div key={i} style={{ borderLeft: `2px solid ${color}`, paddingLeft: 10 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 4 }}>
+                        <span style={{ color, fontSize: 9, marginTop: 2, flexShrink: 0 }}>●</span>
+                        <span style={{ fontSize: 11, color: '#e5e7eb', lineHeight: 1.5, fontWeight: 600 }}>{t}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.6, paddingLeft: 16 }}>
+                        {hint}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-
               {/* AI Fix section */}
               <div style={{ borderTop: '1px solid #1f2937', paddingTop: 12 }}>
                 <div style={{ fontSize: 10, color: '#4b5563', letterSpacing: '0.08em', marginBottom: 8 }}>
