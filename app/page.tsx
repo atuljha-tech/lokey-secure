@@ -170,9 +170,11 @@ export default function Home() {
       const calls = [
         { tool: 'log_security_event', params: { event: 'dashboard_opened', source: 'AI-NMS', timestamp: new Date().toISOString() } },
         { tool: 'retrieve_recent_threats', params: { limit: 5, source: 'AI-NMS' } },
-        { tool: 'scan_website', params: { domain: 'ai-nms-security.vercel.app', source: 'AI-NMS' } },
+        { tool: 'scan_website', params: { domain: 'lokey-secure.vercel.app', source: 'AI-NMS' } },
+        { tool: 'log_security_event', params: { event: 'threat_scan_complete', source: 'AI-NMS', timestamp: new Date().toISOString() } },
       ];
       for (const call of calls) {
+        pushCivic(`CIVIC> calling: ${call.tool}...`);
         const r = await fetch('/api/civic-audit', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(call),
@@ -180,6 +182,7 @@ export default function Home() {
         const d = await r.json();
         pushCivic(`CIVIC> ${call.tool}: ${d.civicConnected ? 'HUB EXECUTED' : 'LOCAL EXECUTED'}`);
         if (d.auditId) pushCivic(`CIVIC> audit_id: ${d.auditId?.substring(0, 16)}...`);
+        if (d.stats) setCivicStats(d.stats);
       }
       await fetchCivic();
       pushCivic('CIVIC> audit log updated');
@@ -268,6 +271,8 @@ export default function Home() {
         pushCivic(`CIVIC> guardrail check: ${d.guardrailPassed ? 'PASSED' : 'BLOCKED'}`);
         pushCivic(`CIVIC> ${d.reason}`);
         pushCivic(`CIVIC> audit_id: ${d.auditId}`);
+        if (d.stats) setCivicStats(d.stats);
+        await fetchCivic();
       } catch { pushCivic('CIVIC> error executing scan_website'); }
       return;
     }

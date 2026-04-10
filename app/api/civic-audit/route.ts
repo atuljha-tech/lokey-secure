@@ -16,29 +16,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: res.ok, tools: res.tools ?? [] });
     }
 
-    // ── On every GET, fire a real Civic log_security_event to prove it works ──
-    // This ensures the audit log always has entries
-    const recentAlerts = store.getAlertDetections(3);
-    for (const alert of recentAlerts) {
-      // Only log if not already logged recently (check last 60s)
-      const alreadyLogged = store.getCivicLogs(10).some(
-        l => l.params?.ip === alert.ip && Date.now() - new Date(l.timestamp).getTime() < 60000
-      );
-      if (!alreadyLogged) {
-        civicHub.executeTool('log_security_event', {
-          ip:         alert.ip,
-          attackType: alert.attackType,
-          riskScore:  alert.riskScore,
-          reason:     alert.reasons[0] ?? 'threat detected',
-          source:     'dashboard-audit-view',
-        }).catch(() => {});
-      }
-    }
-
     const limit   = Number(request.nextUrl.searchParams.get('limit') ?? 50);
     const logs    = store.getCivicLogs(limit).map(l => ({ ...l, executedBy: 'AI_AGENT' }));
-    const stats   = store.getCivicStats();
     const revoked = civicHub.isRevoked();
+
+    // Derive stats from actual log entries (works across serverless instances)
+    const allLogs = store.getCivicLogs(500);
+    const stats = {
+      block_ip:                allLogs.filter(l => l.tool === 'block_ip').length,
+      rate_limit_ip:           allLogs.filter(l => l.tool === 'rate_limit_ip').length,
+      scan_website:            allLogs.filter(l => l.tool === 'scan_website').length,
+      log_security_event:      allLogs.filter(l => l.tool === 'log_security_event').length,
+      retrieve_recent_threats: allLogs.filter(l => l.tool === 'retrieve_recent_threats').length,
+      log_event:               allLogs.filter(l => l.tool === 'log_security_event').length,
+    };
 
     return NextResponse.json({ success: true, logs, stats, revoked, count: logs.length });
   } catch (err) {
@@ -62,8 +53,24 @@ export async function POST(request: NextRequest) {
 
     if (body.tool && body.params) {
       const result = await civicHub.executeTool(body.tool, body.params);
-      const { success, ...rest } = result;
-      return NextResponse.json({ success, ...rest });
+      // Re-derive stats from logs after the call
+      const allLogs = store.getCivicLogs(500);
+      const stats = {
+        block_ip:                allLogs.filter(l => l.tool === 'block_ip').length,
+        rate_limit_ip:           allLogs.filter(l => l.tool === 'rate_limit_ip').length,
+        scan_website:            allLogs.filter(l => l.tool === 'scan_website').length,
+        log_security_event:      allLogs.filter(l => l.tool === 'log_security_event').length,
+        retrieve_recent_threats: allLogs.filter(l => l.tool === 'retrieve_recent_threats').length,
+        log_event:               allLogs.filter(l => l.tool === 'log_security_event').length,
+      };
+      return NextResponse.json({
+        success:        result.success,
+        auditId:        result.auditId,
+        guardrailPassed: result.guardrailPassed,
+        reason:         result.reason,
+        civicConnected: result.civicConnected,
+        stats,
+      });
     }
 
     return NextResponse.json({ success: false, message: 'Unknown action' }, { status: 400 });
